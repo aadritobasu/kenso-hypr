@@ -1,24 +1,27 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
-WALLPAPER_DIR="$HOME/Pictures/walls-2"
 SYMLINK_PATH="$HOME/.config/hypr/current_wallpaper"
 ROFI_CONFIG="$HOME/.config/rofi/config-wallpaper.rasi"
 
-# Safety
-cd "$WALLPAPER_DIR" || exit 1
+# --- Determine current theme folder from symlink ---
+if [[ ! -L "$SYMLINK_PATH" && ! -f "$SYMLINK_PATH" ]]; then
+    echo "❌ Current wallpaper not found: $SYMLINK_PATH"
+    exit 1
+fi
 
-# Pick a random wallpaper first (for preview icon)
-RANDOM_WALL="$(find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+CURRENT_WALL=$(readlink -f "$SYMLINK_PATH")  # resolve symlink
+CURRENT_THEME_DIR=$(dirname "$CURRENT_WALL")  # wallpapers of current theme
+
+# --- Pick wallpaper from current theme ---
+RANDOM_WALL="$(find "$CURRENT_THEME_DIR" -maxdepth 1 -type f \
   \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.jpeg" -o -iname "*.gif" \) | shuf -n 1)"
 
-# Build rofi menu
 SELECTED_WALL=$(
   {
-    # Random option (with preview)
-    printf "󰒺 Random Wallpaper\0icon\x1f%s\n" "$RANDOM_WALL"
+    printf "󰒺  Random Wallpaper\0icon\x1f%s\n" "$RANDOM_WALL"
 
-    # Normal wallpapers (newest first)
-    find "$WALLPAPER_DIR" -maxdepth 1 -type f \
+    find "$CURRENT_THEME_DIR" -maxdepth 1 -type f \
       \( -iname "*.jpg" -o -iname "*.png" -o -iname "*.jpeg" -o -iname "*.gif" \) \
       -printf "%T@ %p\n" | sort -nr | cut -d' ' -f2- |
     while read -r img; do
@@ -26,22 +29,21 @@ SELECTED_WALL=$(
       printf "%s\0icon\x1f%s\n" "$name" "$img"
     done
   } |
-  rofi -dmenu -i -p "Wallpaper" -show-icons -config "$ROFI_CONFIG"
+  rofi -dmenu -i -p "Select Wallpaper" -show-icons -config "$ROFI_CONFIG"
 )
 
-# Exit if nothing selected
 [ -z "$SELECTED_WALL" ] && exit 0
 
-# Resolve selected wallpaper path
 if [[ "$SELECTED_WALL" == *Random* ]]; then
-  SELECTED_PATH="$RANDOM_WALL"
+    SELECTED_PATH="$RANDOM_WALL"
 else
-  SELECTED_PATH="$WALLPAPER_DIR/$SELECTED_WALL"
+    SELECTED_PATH="$CURRENT_THEME_DIR/$SELECTED_WALL"
 fi
 
-# Apply wallpaper colors
-matugen image "$SELECTED_PATH"
-swaync-client -rs
-# Update symlink
-mkdir -p "$(dirname "$SYMLINK_PATH")"
+# --- Apply wallpaper only using swww ---
+notify-send "Applying Wallpaper" --icon="/home/rick/.config/matugen/paint-brush.webp"
+
+swww img "$SELECTED_PATH" --transition-type any --transition-fps 60
 ln -sf "$SELECTED_PATH" "$SYMLINK_PATH"
+
+echo "✅ Applied wallpaper: $SELECTED_PATH"
