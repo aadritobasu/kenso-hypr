@@ -41,7 +41,7 @@ else
 fi
 
 # --- Apply wallpaper only using swww ---
-notify-send "Applying Wallpaper" --icon="/home/rick/.config/matugen/paint-brush.webp"
+notify-send "Applying Wallpaper" --icon="~/.config/matugen/paint-brush.webp"
 
 swww img "$SELECTED_PATH" --transition-type any --transition-fps 60
 ln -sf "$SELECTED_PATH" "$SYMLINK_PATH"
